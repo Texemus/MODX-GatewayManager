@@ -22,7 +22,12 @@ if (!($gateway instanceof GatewayManager)) {
 $gateway->initialize($modx->context->get('key'));
 
 // get the hostname
-$hostname = parse_url($_SERVER['REQUEST_URI'], PHP_URL_HOST);
+$hostname = $_SERVER['HTTP_HOST'];
+
+if (empty($hostname)) {
+    $hostname = parse_url($_SERVER['REQUEST_URI'], PHP_URL_HOST);
+}
+
 if (empty($hostname)) {
     $hostname = $modx->getOption('http_host');
 }
@@ -38,19 +43,31 @@ if (!empty($domain) && is_object($domain) && $domain instanceof gatewayDomain) {
 
     // get the context from the setupped domain
     $domContext = $domain->getOne('Context');
-    $domContextKey = $domContext->get('key');
+    $domResource = $domain->getOne('Resource');
+
+    if (is_null($domContext) && is_null($domResource)) {
+        return;
+    }
+
+    if (is_null($domContext) && !is_null($domResource)) {
+        $domContextKey = $domResource->get('context_key');
+    } else {
+        $domContextKey = $domContext->get('key');
+    }
+
     $sameContext = ($currContextKey == $domContextKey) ? true : false;
 
     if (!$sameContext) {
-
         // switch to the new context
         $modx->switchContext($domContextKey);
     }
 
     // when domain of context is different then a canonical should be created
-    $sameDomain = ($currContext->getOption('http_host') == $domContext->getOption('http_host')) ? true : false;
-    if (!$sameDomain) {
-        $currContext = $domContext;
+    if (!is_null($domContext)) {
+        $sameDomain = ($currContext->getOption('http_host') == $domContext->getOption('http_host')) ? true : false;
+        if (!$sameDomain) {
+            $currContext = $domContext;
+        }
     }
 
     // site start check (only when trying to reach the homepage)
